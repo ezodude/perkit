@@ -1,0 +1,19 @@
+Wiznet ethernet module: 230 kbps = 28,750 bytes per second
+
+Avg IT conversation podcast: 15 MB = 15,728,640 bytes
+
+How many seconds would it take to transfer a 15 MB podcast: 547.08 seconds = about 9 mins.  
+
+115200 pulses per second (max baud rate for arduino)
+14400 bytes per second
+
+it will at least take double the amount of time to move a 15MB podcast from web to arduino (18 minutes)
+
+----
+
+1 MB = 1,048,576 bytes maybe downloaded in:  36.5 seconds (best case scenario)
+
+
+
+1 byte is 8 pulses
+1 byte per millisecond
