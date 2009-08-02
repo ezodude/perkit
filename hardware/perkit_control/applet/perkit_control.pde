@@ -36,7 +36,6 @@ void setup(){
 }
 
 void loop(){
-/*  Serial.println(playerStatus);*/
   debounce(onOffSwitch, onOffSwitchState, lastOnOffSwitchState);
   detectStopEvent();
   performRadioFunctions();
