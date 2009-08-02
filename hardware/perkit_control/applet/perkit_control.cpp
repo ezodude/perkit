@@ -6,7 +6,7 @@
 #define stopped 0
 #define downloading 1
 #define downloaded 2
-#define playerInitiated 3
+#define loaded 3
 #define playing 4
 
 #define stateLED 13
@@ -16,15 +16,28 @@
 #include "WProgram.h"
 void setup();
 void loop();
+void detectStopEvent();
 void performRadioFunctions();
+void startDownload();
+void detectCompletedDownload();
+void loadDownloadedPodcast();
+void detectIsPlaying();
 void setLED();
 void blink(int led);
-int status = stopped;
+int playerStatus = stopped;
 int rxByte= -1;
+
+int lastOnOffSwitchState = 0;
+int onOffSwitchState = 0;
+
+long lastDebounceTime = 0;
+long debounceDelay = 300;   // the debounce time, increase if the output flickers
 
 int ledBlinkState = 0;
 long timeOfLastBlink = 0;
 int blinkInterval = 200;
+
+void debounce(int inputPin, int &pinState, int &lastPinState);
 
 void setup(){
   pinMode(stateLED, OUTPUT);
@@ -34,53 +47,73 @@ void setup(){
 }
 
 void loop(){
-  Serial.println(status);
+/*  Serial.println(playerStatus);*/
+  debounce(onOffSwitch, onOffSwitchState, lastOnOffSwitchState);
+  detectStopEvent();
   performRadioFunctions();
   setLED();
 }
 
+void detectStopEvent(){
+  if(onOffSwitchState == LOW && playerStatus != stopped) 
+  {
+    Serial.println("S");
+    playerStatus = stopped;
+  }
+}
+
 void performRadioFunctions(){
-  switch(status){
+  switch(playerStatus){
     case stopped:
-      if(digitalRead(onOffSwitch) == HIGH) 
-      {
-        Serial.println("D");
-        status = downloading;
-      }
+      startDownload();
       break;
     case downloading:
-      if(digitalRead(onOffSwitch) == LOW) 
-      {
-        Serial.println("S");
-        status = stopped;
-      }
-      else
-      {
-        if(Serial.available())
-        {
-          rxByte = Serial.read();
-          if (rxByte == 'C') status = downloaded;
-        }
-      }
+      detectCompletedDownload();
       break; 
     case downloaded:
-      Serial.println("I");
-      status = playerInitiated;
+      loadDownloadedPodcast();
       break;
-    case playerInitiated:
-      if(Serial.available())
-      {
-        rxByte = Serial.read();
-        if (rxByte == 'P') status = playing;
-      }
+    case loaded:
+      detectIsPlaying();
       break;
     case playing:
       break;
   }
 }
 
+void startDownload(){
+  if(onOffSwitchState == HIGH) 
+  {
+    Serial.println("D");
+    playerStatus = downloading;
+  }
+}
+
+void detectCompletedDownload()
+{
+  if(Serial.available())
+  {
+    rxByte = Serial.read();
+    if (rxByte == 'C') playerStatus = downloaded;
+  }
+}
+
+void loadDownloadedPodcast()
+{
+  Serial.println("L");
+  playerStatus = loaded;
+}
+
+void detectIsPlaying(){
+  if(Serial.available())
+  {
+    rxByte = Serial.read();
+    if (rxByte == 'P') playerStatus = playing;
+  }
+}
+
 void setLED(){
-  switch(status){
+  switch(playerStatus){
     case stopped:
       digitalWrite(stateLED, LOW);
       break;
@@ -90,7 +123,7 @@ void setLED(){
     case downloaded:
       blink(stateLED);
       break;
-    case playerInitiated:
+    case loaded:
       blink(stateLED);
       break;
     case playing:
@@ -105,6 +138,13 @@ void blink(int led){
     ledBlinkState = (ledBlinkState == LOW ? HIGH : LOW);
     digitalWrite(led, ledBlinkState);
   }
+}
+
+void debounce(int inputPin, int &pinState, int &lastPinState){
+  int reading = digitalRead(inputPin);
+  if(reading != lastPinState) lastDebounceTime = millis();
+  if ((millis() - lastDebounceTime) > debounceDelay) pinState = reading;
+  lastPinState = reading;
 }
 
 int main(void)
