@@ -4,10 +4,8 @@
 */
 
 #define stopped 0
-#define downloading 1
-#define downloaded 2
-#define loaded 3
-#define playing 4
+#define loading 1
+#define playing 2
 
 #define stateLED 13
 
@@ -20,7 +18,7 @@ int lastOnOffSwitchState = 0;
 int onOffSwitchState = 0;
 
 long lastDebounceTime = 0;
-long debounceDelay = 300;   // the debounce time, increase if the output flickers
+long debounceDelay = 300;
 
 int ledBlinkState = 0;
 long timeOfLastBlink = 0;
@@ -53,15 +51,9 @@ void detectStopEvent(){
 void performRadioFunctions(){
   switch(playerStatus){
     case stopped:
-      startDownload();
+      startLoadingAPodcast();
       break;
-    case downloading:
-      detectCompletedDownload();
-      break; 
-    case downloaded:
-      loadDownloadedPodcast();
-      break;
-    case loaded:
+    case loading:
       detectIsPlaying();
       break;
     case playing:
@@ -69,27 +61,12 @@ void performRadioFunctions(){
   }
 }
 
-void startDownload(){
+void startLoadingAPodcast(){
   if(onOffSwitchState == HIGH) 
   {
-    Serial.println("D");
-    playerStatus = downloading;
+    Serial.println("L");
+    playerStatus = loading;
   }
-}
-
-void detectCompletedDownload()
-{
-  if(Serial.available())
-  {
-    rxByte = Serial.read();
-    if (rxByte == 'C') playerStatus = downloaded;
-  }
-}
-
-void loadDownloadedPodcast()
-{
-  Serial.println("L");
-  playerStatus = loaded;
 }
 
 void detectIsPlaying(){
@@ -105,15 +82,9 @@ void setLED(){
     case stopped:
       digitalWrite(stateLED, LOW);
       break;
-    case downloading:
+    case loading:
       blink(stateLED);
       break; 
-    case downloaded:
-      blink(stateLED);
-      break;
-    case loaded:
-      blink(stateLED);
-      break;
     case playing:
       digitalWrite(stateLED, HIGH);
   }
