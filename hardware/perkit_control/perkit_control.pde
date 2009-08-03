@@ -10,12 +10,19 @@
 #define stateLED 13
 
 #define onOffSwitch 2
+#define volumeControl 5
+
+#define minPotValue 0
+#define maxPotValue 1023
+#define minVolume 0
+#define maxVolume 10
 
 int playerStatus = stopped;
 int rxByte= -1;
 
 int lastOnOffSwitchState = 0;
 int onOffSwitchState = 0;
+int lastVolume = 0;
 
 long lastDebounceTime = 0;
 long debounceDelay = 300;
@@ -57,7 +64,7 @@ void performRadioFunctions(){
       detectIsPlaying();
       break;
     case playing:
-      break;
+      monitor_volume();
   }
 }
 
@@ -74,6 +81,17 @@ void detectIsPlaying(){
   {
     rxByte = Serial.read();
     if (rxByte == 'P') playerStatus = playing;
+  }
+}
+
+void monitor_volume() {
+  int newVolume = map(analogRead(volumeControl), minPotValue, maxPotValue, minVolume, maxVolume);
+  Serial.println(newVolume);
+  if(newVolume != lastVolume)
+  {
+    Serial.print("V.");
+    Serial.println(newVolume);
+    lastVolume = newVolume;
   }
 }
 
