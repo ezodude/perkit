@@ -23,6 +23,8 @@ int rxByte= -1;
 int lastOnOffSwitchState = 0;
 int onOffSwitchState = 0;
 int lastVolume = 0;
+float rawVolumeSmoothed;
+boolean initialVolumeAdjustment = true;
 
 long lastDebounceTime = 0;
 long debounceDelay = 300;
@@ -38,6 +40,7 @@ void setup(){
   pinMode(onOffSwitch, INPUT);
   
   Serial.begin(9600);
+  rawVolumeSmoothed = analogRead(volumeControl);
 }
 
 void loop(){
@@ -85,13 +88,17 @@ void detectIsPlaying(){
 }
 
 void monitor_volume() {
-  int newVolume = map(analogRead(volumeControl), minPotValue, maxPotValue, minVolume, maxVolume);
+  int rawVolume = analogRead(volumeControl);
+  rawVolumeSmoothed = 0.75f * rawVolumeSmoothed + 0.25f * rawVolume;
+  
+  int newVolume = map(rawVolumeSmoothed, minPotValue, maxPotValue, minVolume, maxVolume);
   Serial.println(newVolume);
-  if(newVolume != lastVolume)
+  if(initialVolumeAdjustment || newVolume != lastVolume)
   {
     Serial.print("V.");
     Serial.println(newVolume);
     lastVolume = newVolume;
+    initialVolumeAdjustment = false;
   }
 }
 
