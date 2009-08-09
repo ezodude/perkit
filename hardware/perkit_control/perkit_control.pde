@@ -31,7 +31,7 @@ boolean initialVolumeAdjustment = true;
 int lastSkipSwitchState = 0;
 int skipSwitchState = 0;
 
-long debounceDelay = 300;
+long debounceDelay = 200;
 long onOffSwitchLastDebounceTime = 0;
 long skipSwitchLastDebounceTime = 0;
 
@@ -80,7 +80,7 @@ void performRadioFunctions(){
 }
 
 void startLoadingAPodcast(){
-  if(onOffSwitchState == HIGH && lastSkipSwitchState == LOW){
+  if(onOffSwitchState == HIGH){
     Serial.println("L");
     playerStatus = loading;
   }
@@ -138,6 +138,6 @@ void blink(int led){
 void debounce(int inputPin, int &pinState, int &lastPinState, long &lastDebounceTime){
   int reading = digitalRead(inputPin);
   if(reading != lastPinState) lastDebounceTime = millis();
-  if ((millis() - onOffSwitchLastDebounceTime) > debounceDelay) pinState = reading;
+  if ((millis() - lastDebounceTime) > debounceDelay) pinState = reading;
   lastPinState = reading;
 }
