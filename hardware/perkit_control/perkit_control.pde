@@ -30,6 +30,9 @@ boolean initialVolumeAdjustment = true;
 
 int lastSkipSwitchState = 0;
 int skipSwitchState = 0;
+int skipTolerance = 275;
+long lastSkipTime = 0;
+boolean skipped;
 
 long debounceDelay = 200;
 long onOffSwitchLastDebounceTime = 0;
@@ -48,6 +51,7 @@ void setup(){
   
   Serial.begin(9600);
   rawVolumeSmoothed = analogRead(volumeControl);
+  skipped = false;
 }
 
 void loop(){
@@ -107,11 +111,16 @@ void monitor_volume() {
 }
 
 void monitor_skip() {
-  Serial.println("");
-  Serial.print("skipSwitchState: ");
-  Serial.println(skipSwitchState);
-  Serial.println("");
-  if(skipSwitchState == HIGH) Serial.println("N");
+  if(skipSwitchState == HIGH && skipped == false){
+    skipped = true;
+    Serial.println("N");
+    lastSkipTime = millis();
+  }
+  determineSkipReset();
+}
+
+void determineSkipReset(){
+  if(skipped && skipSwitchState == LOW && (millis() - lastSkipTime > skipTolerance)) skipped = false;
 }
 
 void setLED(){
