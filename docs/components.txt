@@ -1,0 +1,20 @@
+* Connector x 2 -> ORDERED
+Screw Terminals 3.5mm Pitch (3-Pin)
+http://www.inmotion.pt/store/product_info.php?cPath=19_23&products_id=38
+
+* Atmel ATmega328 with Arduino Bootloader **  -> ORDERED
+http://www.inmotion.pt/store/product_info.php?cPath=10&products_id=138
+
+* Speaker **
+
+* Dial Switch ** igonre this, settle on a different switch.
+
+* Slider Potentiometer?
+
+* FTDI USB to Serial Convertor ** -> ORDERED
+http://www.coolcomponents.co.uk/catalog/product_info.php?products_id=288
+
+* Ethernet module XPort ** -> ORDERED
+http://uk.farnell.com/jsp/search/productdetail.jsp?sku=1297883
+
+* XPort/Wiznet Shield (Not yet needed)
