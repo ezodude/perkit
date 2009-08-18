@@ -1,0 +1,35 @@
+Spoken Word:
+
+- How many users are actively using the site? Not sure.
+
+- Is there a benefit for the kit?
+
+- Will their users want to buy a kit? probably a very small fraction.
+
+- Does SpokenWord, as a platform, provide a good extension point for anyone wanting to hack the kit?
+
+- Is it worth the hassle for us to negotiate sponsored publicity in return for donations from each kit sale?
+
+- NEW feed submission is a bit broken: could not submit guardian science/technology feeds.
+
+- It seems NEW programmes can be submitted using a form: check if this works. Feeds will only contain the latest programs. 
+Older programs (for a topic) will need to be added/tagged programatically. This is a one off; the feed will suffice afterwards.
+
+- Adding programmes to a collection can only be made one program at a time. To seed a collection for a given topic (science/tech) programmes will need to be added programmatically on a daily basis.
+
+----
+
+Possible Approach:
+
+- Add any missing feeds using the form. (could be done manually)
+- Add, if possible, older programmes related to the feeds using the form. 
+- Create a daily Podcast Aggregation process that adds new programmes in SpokenWord.org with specific tags to the 'Science And Tech' collection.
+- Subscribe to the 'Science And Tech' collection feed and use it as the base data for the kit.
+- Refresh the feed daily.
+
+For Hackers wanting to extend stuff:
+
+Either:
+- Create a small web app that allows them to change the feed that is consumed by the kit, at the same time praising benefits of using SpokenWord to create that feed.
+OR
+- Release all the backend software as open source (for personal use) and allow people to hack/host their own solutions.

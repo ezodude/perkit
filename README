@@ -1,4 +1,5 @@
-project perKIT (Podcasts Enabled Radio Kit).
-Team Members
-Aisha Yusaf
-Abdel A Saleh
+project perKIT.
+
+perKIT is a podcast catcher of sorts (akin to a dream catcher).
+The kit enhances a radio with a science and technology broadcast using podcasts caught from around the web
+(the podcast version of http://news.ycombinator.com/).
