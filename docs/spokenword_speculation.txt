@@ -27,9 +27,11 @@ Possible Approach:
 - Subscribe to the 'Science And Tech' collection feed and use it as the base data for the kit.
 - Refresh the feed daily.
 
-For Hackers wanting to extend stuff:
+For Makers wanting to extend stuff:
 
 Either:
 - Create a small web app that allows them to change the feed that is consumed by the kit, at the same time praising benefits of using SpokenWord to create that feed.
+OR
+- Allow them to filter podcasts in a variety of ways. Example: Sci/Tech aired in the last year. This only works when we have a ton of programs!
 OR
 - Release all the backend software as open source (for personal use) and allow people to hack/host their own solutions.
