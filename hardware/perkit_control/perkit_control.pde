@@ -11,22 +11,12 @@
 
 #define onOffSwitch 2
 #define skipSwitch 4
-#define volumeControl 5
-
-#define minPotValue 0
-#define maxPotValue 1023
-#define minVolume 0
-#define maxVolume 10
 
 int playerStatus = stopped;
 int rxByte= -1;
 
 int lastOnOffSwitchState = 0;
 int onOffSwitchState = 0;
-
-int lastVolume = 0;
-float rawVolumeSmoothed;
-boolean initialVolumeAdjustment = true;
 
 int lastSkipSwitchState = 0;
 int skipSwitchState = 0;
@@ -50,7 +40,6 @@ void setup(){
   pinMode(skipSwitch, INPUT);
   
   Serial.begin(9600);
-  rawVolumeSmoothed = analogRead(volumeControl);
   skipped = false;
 }
 
@@ -78,7 +67,6 @@ void performRadioFunctions(){
       detectIsPlaying();
       break;
     case playing:
-      monitor_volume();
       monitor_skip();
   }
 }
@@ -94,19 +82,6 @@ void detectIsPlaying(){
   if(Serial.available()){
     rxByte = Serial.read();
     if (rxByte == 'P') playerStatus = playing;
-  }
-}
-
-void monitor_volume() {
-  int rawVolume = analogRead(volumeControl);
-  rawVolumeSmoothed = 0.75f * rawVolumeSmoothed + 0.25f * rawVolume;
-  
-  int newVolume = map(rawVolumeSmoothed, minPotValue, maxPotValue, minVolume, maxVolume);
-  if(initialVolumeAdjustment || newVolume != lastVolume){
-    Serial.print("V.");
-    Serial.println(newVolume);
-    lastVolume = newVolume;
-    initialVolumeAdjustment = false;
   }
 }
 
@@ -129,18 +104,18 @@ void setLED(){
       digitalWrite(stateLED, LOW);
       break;
     case loading:
-      blink(stateLED);
+      blinkStateLED();
       break; 
     case playing:
       digitalWrite(stateLED, HIGH);
   }
 }
 
-void blink(int led){
+void blinkStateLED(){
   if(millis() - timeOfLastBlink > blinkInterval){
     timeOfLastBlink = millis();
     ledBlinkState = (ledBlinkState == LOW ? HIGH : LOW);
-    digitalWrite(led, ledBlinkState);
+    digitalWrite(stateLED, ledBlinkState);
   }
 }
 
