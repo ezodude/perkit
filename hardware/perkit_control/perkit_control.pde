@@ -3,17 +3,57 @@
   Language: Wiring/Arduino (pin numbers defined for Arduino)
 */
 
-#define stopped 0
-#define loading 1
-#define playing 2
+#include <string.h>
+#include "NewSoftSerial.h"
+#include "AF_XPort.h"
 
-#define stateLED 13
+#define STOPPED 0
+#define CONNECTED 1
+#define SKIPPING_TO_PODCAST_CONTENT_START 2
+#define PODCAST_CONTENT_AT_START 3
+#define PODCAST_STORAGE_READY 4
+#define PODCAST_BUFFERING_STARTED 5
+#define PLAYING 6
 
-#define onOffSwitch 2
-#define skipSwitch 4
+#define STATE_LEDPIN 13
 
-int playerStatus = stopped;
+#define ONOFF_SWITCHPIN 11
+#define SKIP_SWITCHPIN 12
+
+#define XPORT_RXPIN 5
+#define XPORT_TXPIN 6
+#define XPORT_RESETPIN 4
+#define XPORT_DTRPIN 3
+#define XPORT_CTSPIN 2
+
+#define UMP3_RXPIN 8
+#define UMP3_TXPIN 9
+
+AF_XPort xport = AF_XPort(XPORT_RXPIN, XPORT_TXPIN, XPORT_RESETPIN, XPORT_DTRPIN, 0, XPORT_CTSPIN);
+NewSoftSerial uMp3(UMP3_RXPIN, UMP3_TXPIN);
+
+// xport variables
+#define HOSTNAME "audio.theguardian.tv" //hardcoded for now
+#define IPADDR "93.188.128.18"          // audio.theguardian.tv
+#define PORT 80                         // HTTP
+#define HTTPPATH "/audio/kip/standalone/environment/1245927728119/7650/gdn.sci.090625.tm.Chris-Rapley2.mp3" // Hardcoded Podcast
+#define BUFFER_SIZE 512
+
+// uMp3 module variables
+#define ESC 27    //ascii code for escape
+#define CARROT 62 //ascii code for >
+
+#define PODCAST_STREAMING_MIN_SIZE 64000 // 7.5 seconds of content
+
+int kitStatus = STOPPED;
 int rxByte= -1;
+
+char linebuffer[BUFFER_SIZE]; // data buffer
+long podcastSize;
+long podcastContentSizeSoFar;
+
+boolean startKit;
+boolean podcastPlaying;
 
 int lastOnOffSwitchState = 0;
 int onOffSwitchState = 0;
@@ -35,53 +75,217 @@ int blinkInterval = 200;
 void debounce(int inputPin, int &pinState, int &lastPinState, long &lastDebounceTime);
 
 void setup(){
-  pinMode(stateLED, OUTPUT);
-  pinMode(onOffSwitch, INPUT);
-  pinMode(skipSwitch, INPUT);
+  pinMode(STATE_LEDPIN, OUTPUT);
+  pinMode(ONOFF_SWITCHPIN, INPUT);
+  pinMode(SKIP_SWITCHPIN, INPUT);
   
-  Serial.begin(9600);
+  xport.begin(115200);
+  uMp3.begin(115200);
+  Serial.begin(115200);
+  
+  startKit = false;
+  podcastPlaying = false;
   skipped = false;
 }
 
 void loop(){
-  debounce(onOffSwitch, onOffSwitchState, lastOnOffSwitchState, onOffSwitchLastDebounceTime);
-  debounce(skipSwitch, skipSwitchState, lastSkipSwitchState, skipSwitchLastDebounceTime);
+  if(Serial.available() && Serial.read() == 'S'){
+    startKit = true;
+  }
+  
+  if(Serial.available() && Serial.read() == 'D'){
+    Serial.println("Disconnected!");
+    startKit = false;
+  }
+  
+  debounce(ONOFF_SWITCHPIN, onOffSwitchState, lastOnOffSwitchState, onOffSwitchLastDebounceTime);
+  debounce(SKIP_SWITCHPIN, skipSwitchState, lastSkipSwitchState, skipSwitchLastDebounceTime);
   detectStopEvent();
   performRadioFunctions();
   setLED();
 }
 
 void detectStopEvent(){
-  if(onOffSwitchState == LOW && playerStatus != stopped){
-    Serial.println("S");
-    playerStatus = stopped;
+/*  if(onOffSwitchState == LOW && kitStatus != STOPPED){*/
+  if(!startKit){
+    kitStatus = STOPPED;
   }
 }
 
 void performRadioFunctions(){
-  switch(playerStatus){
-    case stopped:
-      startLoadingAPodcast();
+  switch(kitStatus){
+    case STOPPED:
+      startConnectingToDeliveryService();
       break;
-    case loading:
-      detectIsPlaying();
+    case CONNECTED:
+      requestPodcastContent();
       break;
-    case playing:
+    case SKIPPING_TO_PODCAST_CONTENT_START:
+      skipToPodcastContentStart();
+      break;
+    case PODCAST_CONTENT_AT_START:
+      initialiseUMp3();
+      break;
+    case PODCAST_STORAGE_READY:
+      startPodcastContentBuffering();
+      break;
+    case PODCAST_BUFFERING_STARTED:
+      bufferAndPlayPodcastContent();
+      if(podcastPlaying) monitor_skip();
+    case PLAYING:
+      bufferAndPlayPodcastContent();
       monitor_skip();
   }
 }
 
-void startLoadingAPodcast(){
-  if(onOffSwitchState == HIGH){
-    Serial.println("L");
-    playerStatus = loading;
+void startConnectingToDeliveryService(){
+/*  if(onOffSwitchState == HIGH){*/
+  if(startKit){
+    Serial.println("Kit Started!");
+    uint8_t connected = connectToDeliveryService();
+    if(connected) kitStatus = CONNECTED;
   }
 }
 
-void detectIsPlaying(){
-  if(Serial.available()){
-    rxByte = Serial.read();
-    if (rxByte == 'P') playerStatus = playing;
+uint8_t connectToDeliveryService(){
+  Serial.println("Attempting to connect to server...");
+  
+  uint8_t reset = xport.reset();
+  switch (reset) {
+    case ERROR_NONE: { 
+     Serial.println("  Xport reset OK!");
+     break;
+    }
+    case  ERROR_TIMEDOUT: { 
+        Serial.println("  Timed out while resetting xport!"); 
+        return 0;
+     }
+     case ERROR_BADRESP:  { 
+        Serial.println("  Bad response while resetting xport!");
+        return 0;
+     }
+     default:
+       Serial.println("  Unknown error while resetting xport!"); 
+       return 0;
+  }
+    
+  uint8_t connected = xport.connect(IPADDR, PORT);
+  switch (connected) {
+    case ERROR_NONE: { 
+     Serial.println("  Connected OK!");
+     break;
+    }
+    case  ERROR_TIMEDOUT: { 
+        Serial.println("  Timed out on connecting!"); 
+        return 0;
+     }
+     case ERROR_BADRESP:  { 
+        Serial.println("  Bad response on connecting!");
+        return 0;
+     }
+     default:
+       Serial.println("  Unknown error while connecting!"); 
+       return 0;
+  }
+  return 1;
+}
+
+void requestPodcastContent(){
+  Serial.println("Attempting to requst podcast content from server...");
+  xport.print("GET "); 
+  xport.print(HTTPPATH); 
+  xport.print(" HTTP/1.1"); 
+  xport.print(13, BYTE); xport.print(10, BYTE);
+  
+  xport.print("Host: ");
+  xport.print(HOSTNAME);
+  xport.print(13, BYTE); xport.print(10, BYTE);
+  xport.print(13, BYTE); xport.print(10, BYTE);
+  
+  xport.readline_timeout(linebuffer, 255, 3000);
+  xport.flush(100);
+  
+  if(strstr(linebuffer, "HTTP/1.1 200 OK") == linebuffer)
+    kitStatus = SKIPPING_TO_PODCAST_CONTENT_START; 
+  else
+   kitStatus = STOPPED;
+}
+
+void skipToPodcastContentStart(){
+  Serial.println("Attempting to skip podcast Start...");
+  xport.readline_timeout(linebuffer, BUFFER_SIZE, 3000);
+  xport.flush(100);
+  if(linebuffer[0] == '\n')
+    kitStatus = PODCAST_CONTENT_AT_START;
+}
+
+void initialiseUMp3(){
+  Serial.println("Attempting to initialise uMp3...");
+  uMp3.println(ESC, BYTE);
+  if(foundUMp3Carrot()) 
+    kitStatus = PODCAST_STORAGE_READY;
+}
+
+uint8_t foundUMp3Carrot(){
+  if(uMp3.available())
+    if(CARROT == uMp3.read()){
+      return 1;
+    }
+    else{
+      uMp3.flush();
+      return 0;
+    }
+}
+
+void bufferPodcastContent(){
+  xport.readline_timeout(linebuffer, BUFFER_SIZE, 3000);
+  xport.flush(100);
+  uint8_t numberOfBytesToWrite = strlen(linebuffer);
+  
+  uMp3.print("FC W 1 ");
+  uMp3.print(numberOfBytesToWrite, DEC);
+  uMp3.print("\r");
+  uMp3.print(linebuffer);
+  uMp3.flush();
+  delay(50); //wait for a ms
+  
+  podcastContentSizeSoFar += numberOfBytesToWrite;
+  xport.flush(100);
+}
+
+void startPodcastContentBuffering(){
+  Serial.println("Opening [/PODCAST.MP3] for appending...");
+  uMp3.print("FC O 1 A /PODCAST.MP3\r");
+  uMp3.flush();
+  delay(5);
+  
+  if(foundUMp3Carrot()){
+    Serial.println("Buffering [/PODCAST.MP3] for appending...");
+    bufferPodcastContent();
+    kitStatus = PODCAST_BUFFERING_STARTED;
+  }
+}
+
+void bufferAndPlayPodcastContent(){
+  if(foundUMp3Carrot()){
+    
+    bufferPodcastContent();
+    
+    if(foundUMp3Carrot() && !podcastPlaying && podcastContentSizeSoFar > PODCAST_STREAMING_MIN_SIZE){
+      Serial.println("Attempting to play [/PODCAST.MP3]");
+      uMp3.print("PC F /PODCAST.MP3\r");
+      uMp3.flush();
+      delay(5);
+      if(foundUMp3Carrot()) podcastPlaying = true;
+    }
+    
+    if(podcastContentSizeSoFar >= 4118322)
+    {
+      Serial.println("Closing file [/PODCAST.MP3]...");
+      uMp3.println("FC C 1");
+      uMp3.flush();
+      kitStatus = PLAYING;
+    }
   }
 }
 
@@ -99,15 +303,15 @@ void determineSkipReset(){
 }
 
 void setLED(){
-  switch(playerStatus){
-    case stopped:
-      digitalWrite(stateLED, LOW);
+  switch(kitStatus){
+    case STOPPED:
+      digitalWrite(STATE_LEDPIN, LOW);
       break;
-    case loading:
+    case CONNECTED:
       blinkStateLED();
       break; 
-    case playing:
-      digitalWrite(stateLED, HIGH);
+    case PLAYING:
+      digitalWrite(STATE_LEDPIN, HIGH);
   }
 }
 
@@ -115,7 +319,7 @@ void blinkStateLED(){
   if(millis() - timeOfLastBlink > blinkInterval){
     timeOfLastBlink = millis();
     ledBlinkState = (ledBlinkState == LOW ? HIGH : LOW);
-    digitalWrite(stateLED, ledBlinkState);
+    digitalWrite(STATE_LEDPIN, ledBlinkState);
   }
 }
 
