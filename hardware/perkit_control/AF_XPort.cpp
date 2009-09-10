@@ -18,14 +18,16 @@ AF_XPort::AF_XPort(uint8_t rx, uint8_t tx, uint8_t reset, uint8_t dtr, uint8_t r
   rtspin = rts;
   ctspin = cts;
   if (ctspin) {
-    digitalWrite(ctspin, HIGH);
     pinMode(ctspin, OUTPUT);
+    digitalWrite(ctspin, HIGH);
   }
 }
 
 void AF_XPort::begin(uint16_t b) {
-  xportserial.setTX(rxpin);
-  xportserial.setRX(txpin);
+  // xportserial.setTX(rxpin);
+  // xportserial.setRX(txpin);
+  xportserial.setTX(txpin);
+  xportserial.setRX(rxpin);
   xportserial.begin(b);
 }
 
@@ -33,15 +35,17 @@ uint8_t AF_XPort::reset(void) {
   char d;
 
   if (resetpin) {
+    Serial.println("About to reset XPort!");
     digitalWrite(resetpin, LOW);
     delay(50);
     digitalWrite(resetpin, HIGH);
+    delay(5000);
   }
 
  // wait for 'D' for disconnected
-  if (serialavail_timeout(500)) { // 0.5 seconds timeout
+  if (serialavail_timeout(1000)) { // 5 second timeout 
     d = xportserial.read();
-    //Serial.print("Read: "); Serial.print(d, HEX);
+    Serial.print("Read: "); Serial.println(d);
     if (d != 'D'){
       return ERROR_BADRESP;
     } else {
@@ -79,7 +83,6 @@ uint8_t AF_XPort::connect(char *ipaddr, long port) {
   return 0;
 }
 
-
 // check to see what data is available from the xport
 uint8_t AF_XPort::serialavail_timeout(int timeout) {  // in ms
   while (timeout) {
@@ -102,8 +105,6 @@ uint8_t AF_XPort::serialavail_timeout(int timeout) {  // in ms
   return 0;
 }
 
-
-
 uint8_t AF_XPort::readline_timeout(char *buff, uint8_t maxlen, int timeout) {
   uint8_t idx;
   char c;
@@ -112,11 +113,11 @@ uint8_t AF_XPort::readline_timeout(char *buff, uint8_t maxlen, int timeout) {
     buff[idx] = 0;
     if (serialavail_timeout(timeout)) {
       c = xportserial.read();
-      //Serial.print(c);    // debugging
+      Serial.print(c);    // debugging
       if (c == '\n') {
-	return idx;
+  return idx;
       } else {
-	buff[idx] = c;
+  buff[idx] = c;
       }
     } else {
       // timedout!
@@ -125,7 +126,6 @@ uint8_t AF_XPort::readline_timeout(char *buff, uint8_t maxlen, int timeout) {
   }
   return idx;
 }
-
 
 // clear out any extra data
 void AF_XPort::flush(int timeout) {

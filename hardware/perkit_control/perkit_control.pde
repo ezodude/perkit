@@ -20,11 +20,11 @@
 #define ONOFF_SWITCHPIN 11
 #define SKIP_SWITCHPIN 12
 
+#define XPORT_CTSPIN 2
+#define XPORT_DTRPIN 3
+#define XPORT_RESETPIN 4
 #define XPORT_RXPIN 5
 #define XPORT_TXPIN 6
-#define XPORT_RESETPIN 4
-#define XPORT_DTRPIN 3
-#define XPORT_CTSPIN 2
 
 #define UMP3_RXPIN 8
 #define UMP3_TXPIN 9
@@ -36,8 +36,11 @@ NewSoftSerial uMp3(UMP3_RXPIN, UMP3_TXPIN);
 #define HOSTNAME "audio.theguardian.tv" //hardcoded for now
 #define IPADDR "93.188.128.18"          // audio.theguardian.tv
 #define PORT 80                         // HTTP
-#define HTTPPATH "/audio/kip/standalone/environment/1245927728119/7650/gdn.sci.090625.tm.Chris-Rapley2.mp3" // Hardcoded Podcast
-#define BUFFER_SIZE 512
+// #define HTTPPATH "/audio/kip/standalone/environment/1245927728119/7650/gdn.sci.090625.tm.Chris-Rapley2.mp3" // Hardcoded 6 mins Podcast
+#define HTTPPATH "/audio/kip/standalone/sport/1247769014633/2992/gdn.spo.ps.090716.ashes.mp3" // Hardcoded 2 mins Podcast
+#define BUFFER_SIZE 256
+#define READ_MAX_LENGTH (BUFFER_SIZE - 1)
+#define READ_TIMEOUT 1000
 
 // uMp3 module variables
 #define ESC 27    //ascii code for escape
@@ -46,7 +49,6 @@ NewSoftSerial uMp3(UMP3_RXPIN, UMP3_TXPIN);
 #define PODCAST_STREAMING_MIN_SIZE 64000 // 7.5 seconds of content
 
 int kitStatus = STOPPED;
-int rxByte= -1;
 
 char linebuffer[BUFFER_SIZE]; // data buffer
 long podcastSize;
@@ -79,9 +81,13 @@ void setup(){
   pinMode(ONOFF_SWITCHPIN, INPUT);
   pinMode(SKIP_SWITCHPIN, INPUT);
   
-  xport.begin(115200);
+/*  xport.begin(115200);
   uMp3.begin(115200);
-  Serial.begin(115200);
+  Serial.begin(115200);*/
+
+  xport.begin(57600);
+  uMp3.begin(57600);
+  Serial.begin(57600);
   
   startKit = false;
   podcastPlaying = false;
@@ -191,19 +197,20 @@ uint8_t connectToDeliveryService(){
 }
 
 void requestPodcastContent(){
+  
+  //xport.get(HTTPPATH, HOSTNAME);
   Serial.println("Attempting to requst podcast content from server...");
   xport.print("GET "); 
   xport.print(HTTPPATH); 
-  xport.print(" HTTP/1.1"); 
-  xport.print(13, BYTE); xport.print(10, BYTE);
+  xport.println(" HTTP/1.1"); 
   
   xport.print("Host: ");
   xport.print(HOSTNAME);
-  xport.print(13, BYTE); xport.print(10, BYTE);
-  xport.print(13, BYTE); xport.print(10, BYTE);
-  
+  xport.println("\r\n");
+
+  Serial.println("Attempting to read after connection (LAST RUN 3 MINS FOR 2 MIN PODCAST GET REQUEST)...");
   xport.readline_timeout(linebuffer, 255, 3000);
-  xport.flush(100);
+  Serial.print("Read: ["); Serial.print(linebuffer); Serial.println("]");
   
   if(strstr(linebuffer, "HTTP/1.1 200 OK") == linebuffer)
     kitStatus = SKIPPING_TO_PODCAST_CONTENT_START; 
@@ -213,9 +220,12 @@ void requestPodcastContent(){
 
 void skipToPodcastContentStart(){
   Serial.println("Attempting to skip podcast Start...");
-  xport.readline_timeout(linebuffer, BUFFER_SIZE, 3000);
-  xport.flush(100);
-  if(linebuffer[0] == '\n')
+  xport.readline_timeout(linebuffer, READ_MAX_LENGTH, 3000);
+  Serial.print("Read: ["); Serial.print(linebuffer); Serial.println("]");
+  
+/*  if(strlen(linebuffer) == 0)*/  
+  if((strlen(linebuffer) == 1 && linebuffer[0] == '\n') || 
+    (strlen(linebuffer) == 2 && linebuffer[1] == '\r' && linebuffer[1] == '\n'))
     kitStatus = PODCAST_CONTENT_AT_START;
 }
 
@@ -238,8 +248,7 @@ uint8_t foundUMp3Carrot(){
 }
 
 void bufferPodcastContent(){
-  xport.readline_timeout(linebuffer, BUFFER_SIZE, 3000);
-  xport.flush(100);
+  xport.readline_timeout(linebuffer, READ_MAX_LENGTH, 3000);
   uint8_t numberOfBytesToWrite = strlen(linebuffer);
   
   uMp3.print("FC W 1 ");
@@ -250,7 +259,6 @@ void bufferPodcastContent(){
   delay(50); //wait for a ms
   
   podcastContentSizeSoFar += numberOfBytesToWrite;
-  xport.flush(100);
 }
 
 void startPodcastContentBuffering(){
@@ -284,6 +292,7 @@ void bufferAndPlayPodcastContent(){
       Serial.println("Closing file [/PODCAST.MP3]...");
       uMp3.println("FC C 1");
       uMp3.flush();
+      xport.flush(100);
       kitStatus = PLAYING;
     }
   }
